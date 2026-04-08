@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hungary 2026 - Election Percentage Prediction</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f4f8;
+            color: #2d3748;
+            line-height: 1.5;
+            padding: 16px;
+        }
+        .container { max-width: 760px; margin: 0 auto; }
+        .card {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        h1 { text-align: center; font-size: 1.5em; margin-bottom: 2px; }
+        .subtitle { text-align: center; color: #718096; font-size: 0.95em; margin-bottom: 4px; }
+        .instructions { text-align: center; color: #a0aec0; font-size: 0.85em; }
+
+        label.field-label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.95em; }
+        #playerName {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #playerName:focus { border-color: #4299e1; }
+
+        .percent-grid {
+            display: grid;
+            gap: 10px;
+            margin: 14px 0 10px;
+        }
+        .percent-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 8px 10px;
+            background: #f7fafc;
+            border-radius: 10px;
+            border: 1px solid #edf2f7;
+        }
+        .party-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 120px;
+            font-weight: 700;
+            color: #4a5568;
+        }
+        .party-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .percent-row input[type="range"] {
+            flex: 1 1 230px;
+            min-width: 140px;
+        }
+        .percent-row input[type="number"] {
+            width: 76px;
+            padding: 6px;
+            text-align: center;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.95em;
+            font-weight: 600;
+        }
+
+        .counts-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        .count-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.82em;
+            color: #fff;
+            white-space: nowrap;
+        }
+        .total-bar {
+            text-align: center;
+            font-size: 1.06em;
+            font-weight: 700;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0 6px;
+        }
+        .total-ok { background: #f0fff4; color: #38a169; }
+        .total-bad { background: #fff5f5; color: #e53e3e; }
+        .total-hint { text-align: center; color: #a0aec0; font-size: 0.85em; margin-bottom: 8px; }
+
+        .btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-top: 4px;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #4299e1; color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: #3182ce; }
+        .btn-primary:disabled { background: #cbd5e0; color: #a0aec0; cursor: not-allowed; }
+        .btn-secondary { background: #edf2f7; color: #4a5568; }
+        .btn-secondary:hover { background: #e2e8f0; }
+        .btn-small { display: inline-block; width: auto; padding: 8px 18px; font-size: 0.9em; }
+
+        .code-area { margin-top: 16px; animation: slideIn 0.3s ease; }
+        .code-box {
+            width: 100%;
+            min-height: 65px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.82em;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            resize: none;
+            background: #f7fafc;
+            word-break: break-all;
+        }
+        .code-label { font-weight: 600; margin-bottom: 6px; font-size: 0.95em; }
+        .copied-msg { color: #38a169; font-weight: 600; text-align: center; margin-top: 6px; font-size: 0.9em; }
+
+        .divider { border: none; border-top: 2px dashed #e2e8f0; margin: 8px 0; }
+
+        .import-result {
+            margin-top: 14px;
+            padding: 16px;
+            background: #f7fafc;
+            border-radius: 10px;
+            animation: slideIn 0.3s ease;
+        }
+        .import-result h4 { margin-bottom: 8px; }
+        .import-stats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .import-stat { padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.82em; color: #fff; }
+        .bar-list { display: grid; gap: 8px; margin-top: 8px; }
+        .bar-row {
+            display: grid;
+            grid-template-columns: 62px 1fr 56px;
+            gap: 8px;
+            align-items: center;
+            font-size: 0.85em;
+            color: #4a5568;
+        }
+        .bar-track {
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .bar-fill { height: 100%; border-radius: 999px; }
+        .import-total { margin-top: 10px; font-weight: 700; color: #2d3748; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 560px) {
+            .card { padding: 16px; }
+            h1 { font-size: 1.25em; }
+            .party-chip { min-width: 100px; }
+            .percent-row input[type="range"] { min-width: 110px; }
+            .bar-row { grid-template-columns: 56px 1fr 50px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="card">
+        <h1>Hungarian Election 2026</h1>
+        <p class="subtitle">Percentage Prediction Game</p>
+        <p class="instructions">
+            Set your percentage prediction for each party.<br>
+            The total must be exactly 100% before you can generate your vote code.
+        </p>
+    </div>
+
+    <div class="card">
+        <label class="field-label" for="playerName">Your Name</label>
+        <input type="text" id="playerName" placeholder="Enter your name..." maxlength="40">
+
+        <div class="percent-grid" id="percentGrid"></div>
+
+        <div class="counts-row" id="countsRow"></div>
+        <div class="total-bar total-bad" id="totalBar">Total: 0% / 100%</div>
+        <p class="total-hint" id="totalHint">Missing: 100%</p>
+
+        <div class="btn-row">
+            <button class="btn btn-secondary btn-small" onclick="normalizeToHundred()">Normalize to 100%</button>
+            <button class="btn btn-secondary btn-small" onclick="clearAll()" style="background:#fff5f5;color:#e53e3e">Clear all</button>
+        </div>
+
+        <button class="btn btn-primary" id="generateBtn" disabled onclick="generateCode()" style="margin-top:14px">
+            Generate My Vote Code
+        </button>
+
+        <div class="code-area" id="codeArea" style="display:none">
+            <p class="code-label">Your Vote Code - copy and send it back!</p>
+            <textarea class="code-box" id="voteCode" readonly></textarea>
+            <button class="btn btn-secondary" onclick="copyCode()" style="margin-top:10px;background:#48bb78;color:#fff">Copy to Clipboard</button>
+            <p class="copied-msg" id="copiedMsg" style="display:none">Copied!</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <hr class="divider">
+        <h3 style="margin:8px 0">View a Prediction</h3>
+        <p style="color:#718096;font-size:0.88em;margin-bottom:8px">
+            Paste someone's vote code to see their percentage prediction.
+        </p>
+        <textarea class="code-box" id="importCode" placeholder="Paste PCT-... code here" style="min-height:50px"></textarea>
+        <button class="btn btn-secondary" onclick="viewPrediction()">View Prediction</button>
+        <div id="importResult"></div>
+    </div>
+
+</div>
+
+<script>
+const TOTAL_PERCENT = 100;
+const STEP = 0.1;
+const EPSILON = 0.05;
+
+const PARTY_ORDER = ['fidesz', 'tisza', 'dk', 'mkkp', 'mhm'];
+const PARTIES = {
+    fidesz: { name: 'FIDESZ', color: '#f47920' },
+    tisza:  { name: 'TISZA',  color: '#22b8cf' },
+    dk:     { name: 'DK',     color: '#3b82f6' },
+    mkkp:   { name: 'MKKP',   color: '#a855f7' },
+    mhm:    { name: 'MHM',    color: '#16a34a' }
+};
+
+const percentages = {};
+PARTY_ORDER.forEach(k => { percentages[k] = 0; });
+
+function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+}
+
+function roundStep(v) {
+    return Math.round(v / STEP) * STEP;
+}
+
+function fmt(v) {
+    return roundStep(v).toFixed(1).replace(/\.0$/, '');
+}
+
+function getTotal() {
+    return roundStep(PARTY_ORDER.reduce((sum, k) => sum + percentages[k], 0));
+}
+
+function setControlValue(key, value) {
+    let v = parseFloat(value);
+    if (!Number.isFinite(v)) v = 0;
+    v = roundStep(clamp(v, 0, TOTAL_PERCENT));
+
+    percentages[key] = v;
+
+    const n = document.getElementById('pct_' + key);
+    const r = document.getElementById('pctr_' + key);
+    if (n) n.value = v.toFixed(1);
+    if (r) r.value = v;
+    return v;
+}
+
+function syncStateFromControls() {
+    PARTY_ORDER.forEach(k => {
+        const n = document.getElementById('pct_' + k);
+        setControlValue(k, n ? n.value : 0);
+    });
+}
+
+function syncControlsFromState() {
+    PARTY_ORDER.forEach(k => setControlValue(k, percentages[k]));
+}
+
+function buildPercentControls() {
+    const grid = document.getElementById('percentGrid');
+    PARTY_ORDER.forEach(key => {
+        const row = document.createElement('div');
+        row.className = 'percent-row';
+        row.innerHTML =
+            '<span class="party-chip">' +
+            '<span class="party-dot" style="background:' + PARTIES[key].color + '"></span>' +
+            PARTIES[key].name +
+            '</span>' +
+            '<input type="range" id="pctr_' + key + '" min="0" max="100" step="0.1" value="0" style="accent-color:' + PARTIES[key].color + '" oninput="handlePercentInput(\'' + key + '\', \'slider\')">' +
+            '<input type="number" id="pct_' + key + '" min="0" max="100" step="0.1" value="0.0" oninput="handlePercentInput(\'' + key + '\', \'number\')">';
+        grid.appendChild(row);
+    });
+}
+
+function buildCountsRow() {
+    const row = document.getElementById('countsRow');
+    PARTY_ORDER.forEach(key => {
+        const badge = document.createElement('span');
+        badge.className = 'count-badge';
+        badge.style.background = PARTIES[key].color;
+        badge.innerHTML = PARTIES[key].name + ': <span id="show_' + key + '">0</span>%';
+        row.appendChild(badge);
+    });
+}
+
+function handlePercentInput(key, source) {
+    const inputValue = source === 'slider'
+        ? document.getElementById('pctr_' + key).value
+        : document.getElementById('pct_' + key).value;
+
+    setControlValue(key, inputValue);
+    syncStateFromControls();
+
+    let total = getTotal();
+    if (total > TOTAL_PERCENT) {
+        const overflow = roundStep(total - TOTAL_PERCENT);
+        setControlValue(key, percentages[key] - overflow);
+        syncStateFromControls();
+        total = getTotal();
+
+        while (total > TOTAL_PERCENT + EPSILON) {
+            setControlValue(key, percentages[key] - STEP);
+            syncStateFromControls();
+            total = getTotal();
+        }
+    }
+
+    updateTotals();
+}
+
+function updateTotals() {
+    PARTY_ORDER.forEach(k => {
+        document.getElementById('show_' + k).textContent = fmt(percentages[k]);
+    });
+
+    const total = getTotal();
+    const bar = document.getElementById('totalBar');
+    const hint = document.getElementById('totalHint');
+
+    bar.textContent = 'Total: ' + fmt(total) + '% / 100%';
+
+    if (Math.abs(total - TOTAL_PERCENT) <= EPSILON) {
+        bar.className = 'total-bar total-ok';
+        hint.textContent = 'Perfect total.';
+        hint.style.color = '#38a169';
+    } else if (total < TOTAL_PERCENT) {
+        hint.textContent = 'Missing: ' + fmt(TOTAL_PERCENT - total) + '%';
+        hint.style.color = '#e53e3e';
+        bar.className = 'total-bar total-bad';
+    } else {
+        hint.textContent = 'Over by: ' + fmt(total - TOTAL_PERCENT) + '%';
+        hint.style.color = '#e53e3e';
+        bar.className = 'total-bar total-bad';
+    }
+
+    const name = document.getElementById('playerName').value.trim();
+    document.getElementById('generateBtn').disabled = Math.abs(total - TOTAL_PERCENT) > EPSILON || !name;
+}
+
+function normalizeToHundred() {
+    let total = getTotal();
+
+    if (total <= EPSILON) {
+        const even = roundStep(TOTAL_PERCENT / PARTY_ORDER.length);
+        PARTY_ORDER.forEach(k => { percentages[k] = even; });
+    } else {
+        const factor = TOTAL_PERCENT / total;
+        PARTY_ORDER.forEach(k => {
+            percentages[k] = roundStep(percentages[k] * factor);
+        });
+    }
+
+    const lastKey = PARTY_ORDER[PARTY_ORDER.length - 1];
+    let partial = 0;
+    for (let i = 0; i < PARTY_ORDER.length - 1; i++) {
+        partial = roundStep(partial + percentages[PARTY_ORDER[i]]);
+    }
+    percentages[lastKey] = roundStep(TOTAL_PERCENT - partial);
+
+    syncControlsFromState();
+    updateTotals();
+}
+
+function clearAll() {
+    PARTY_ORDER.forEach(k => { percentages[k] = 0; });
+    syncControlsFromState();
+    updateTotals();
+}
+
+function utoa(s) { return btoa(unescape(encodeURIComponent(s))); }
+function atou(s) { return decodeURIComponent(escape(atob(s))); }
+
+function generateCode() {
+    const data = {
+        n: document.getElementById('playerName').value.trim(),
+        fi: percentages.fidesz,
+        ti: percentages.tisza,
+        dk: percentages.dk,
+        mk: percentages.mkkp,
+        mh: percentages.mhm,
+        d: new Date().toISOString()
+    };
+
+    const code = 'PCT-' + utoa(JSON.stringify(data));
+    document.getElementById('voteCode').value = code;
+    document.getElementById('codeArea').style.display = 'block';
+    document.getElementById('copiedMsg').style.display = 'none';
+    document.getElementById('codeArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function copyCode() {
+    const ta = document.getElementById('voteCode');
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(ta.value).then(() => {
+        showCopied();
+    }).catch(() => {
+        document.execCommand('copy');
+        showCopied();
+    });
+}
+
+function showCopied() {
+    const msg = document.getElementById('copiedMsg');
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 2500);
+}
+
+function viewPrediction() {
+    const raw = document.getElementById('importCode').value.trim();
+    const result = document.getElementById('importResult');
+    if (!raw) {
+        result.innerHTML = '';
+        return;
+    }
+
+    try {
+        const b64 = raw.startsWith('PCT-') ? raw.slice(4) : raw;
+        const data = JSON.parse(atou(b64));
+        const values = {
+            fidesz: clamp(parseFloat(data.fi) || 0, 0, 100),
+            tisza:  clamp(parseFloat(data.ti) || 0, 0, 100),
+            dk:     clamp(parseFloat(data.dk) || 0, 0, 100),
+            mkkp:   clamp(parseFloat(data.mk) || 0, 0, 100),
+            mhm:    clamp(parseFloat(data.mh) || 0, 0, 100)
+        };
+
+        const total = roundStep(PARTY_ORDER.reduce((sum, k) => sum + values[k], 0));
+        const date = data.d ? new Date(data.d).toLocaleDateString() : '?';
+
+        let statsHtml = '';
+        PARTY_ORDER.forEach(k => {
+            statsHtml += '<span class="import-stat" style="background:' + PARTIES[k].color + '">' +
+                PARTIES[k].name + ' ' + fmt(values[k]) + '%</span>';
+        });
+
+        let barsHtml = '';
+        PARTY_ORDER.forEach(k => {
+            barsHtml +=
+                '<div class="bar-row">' +
+                '<span>' + PARTIES[k].name + '</span>' +
+                '<div class="bar-track"><div class="bar-fill" style="width:' + fmt(values[k]) + '%;background:' + PARTIES[k].color + '"></div></div>' +
+                '<span>' + fmt(values[k]) + '%</span>' +
+                '</div>';
+        });
+
+        result.innerHTML =
+            '<div class="import-result">' +
+            '<h4>' + escHtml(data.n || 'Unknown') + '\'s Prediction <span style="color:#a0aec0;font-weight:400;font-size:0.85em">(' + date + ')</span></h4>' +
+            '<div class="import-stats">' + statsHtml + '</div>' +
+            '<div class="bar-list">' + barsHtml + '</div>' +
+            '<p class="import-total">Total: ' + fmt(total) + '%</p>' +
+            '</div>';
+    } catch (e) {
+        result.innerHTML = '<div class="import-result" style="color:#e53e3e">Invalid vote code. Check and try again.</div>';
+    }
+}
+
+function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+document.getElementById('playerName').addEventListener('input', updateTotals);
+
+buildPercentControls();
+buildCountsRow();
+syncControlsFromState();
+updateTotals();
+</script>
+</body>
+</html>
