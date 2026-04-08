@@ -48,17 +48,16 @@ def fmt_num(value: float, places: int = 2) -> str:
 
 
 def extract_code(text: str) -> str:
-    """Extract a PCT-/TIPP- code from a text input."""
-    m = re.search(r"(?:PCT|TIPP)-[A-Za-z0-9+/=_-]+", text)
+    """Extract a PCT- code from a text input."""
+    m = re.search(r"PCT-[A-Za-z0-9+/=_-]+", text)
     return m.group(0) if m else text.strip()
 
 
 def _decode_payload(code: str) -> dict:
     payload = extract_code(code)
-    if payload.startswith("PCT-"):
-        payload = payload[4:]
-    elif payload.startswith("TIPP-"):
-        payload = payload[5:]
+    if not payload.startswith("PCT-"):
+        raise ValueError("Percentage evaluator only accepts PCT- vote codes")
+    payload = payload[4:]
 
     if not payload:
         raise ValueError("Empty vote code payload")

@@ -17,11 +17,12 @@ You can collect participant vote codes from the browser pages, then evaluate and
   - Generates `PCT-...` vote codes
 - `evaluate.py`
   - Evaluator for seat-based predictions
+  - Accepts only `TIPP-...` vote codes
   - Stores data in `predictions.json`
   - Creates HTML report (`results.html` by default)
 - `evaluate_percentage.py`
   - Evaluator for percentage-based predictions
-  - Accepts `PCT-...` and `TIPP-...` style prefixes
+  - Accepts only `PCT-...` vote codes
   - Handles base64 padding automatically
   - Stores data in `predictions_percentage.json`
   - Exports spreadsheet-friendly CSV to `predictions_percentage.csv`
@@ -72,7 +73,9 @@ python3 evaluate_percentage.py list
 
 Seat-based input order:
 
-`FI TI DK MH MK`
+`FI TI DK MH MK [OT]`
+
+If `OT` is omitted, `evaluate.py` infers it as `199 - (FI + TI + DK + MH + MK)`.
 
 Example:
 
@@ -126,6 +129,11 @@ Prefixes:
 
 - Seat codes: `TIPP-...`
 - Percentage codes: `PCT-...`
+
+Code types are intentionally strict and not cross-compatible:
+
+- `evaluate.py` rejects `PCT-...` codes
+- `evaluate_percentage.py` rejects `TIPP-...` codes
 
 ## Output Files
 

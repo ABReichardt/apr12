@@ -6,8 +6,8 @@ Usage:
     python evaluate.py add <vote_code>              Add a single prediction
     python evaluate.py add --file predictions.txt   Add from file (one code per line)
     python evaluate.py list                         List all predictions
-    python evaluate.py evaluate FI TI DK MH MK      Compare against actual results
-    python evaluate.py report FI TI DK MH MK        Generate HTML results report
+    python evaluate.py evaluate FI TI DK MH MK [OT] Compare against actual results
+    python evaluate.py report FI TI DK MH MK [OT]   Generate HTML results report
 """
 
 import argparse
@@ -15,21 +15,20 @@ import base64
 import json
 import math
 import re
-import sys
 from pathlib import Path
 from datetime import datetime
 
 PREDICTIONS_FILE = Path("predictions.json")
-PARTY_KEYS = ["fidesz", "tisza", "dk", "mhm", "mkkp"]
+PARTY_KEYS = ["fidesz", "tisza", "dk", "mhm", "mkkp", "other"]
 PARTY_NAMES = {
     "fidesz": "FIDESZ", "tisza": "TISZA", "dk": "DK",
-    "mhm": "MHM", "mkkp": "MKKP",
+    "mhm": "MHM", "mkkp": "MKKP", "other": "OTHER",
 }
 PARTY_COLORS = {
     "fidesz": "#f47920", "tisza": "#22b8cf", "dk": "#3b82f6",
-    "mhm": "#16a34a", "mkkp": "#a855f7",
+    "mhm": "#16a34a", "mkkp": "#a855f7", "other": "#64748b",
 }
-FILL_ORDER = ["dk", "mkkp", "tisza", "mhm", "fidesz"]
+FILL_ORDER = ["dk", "mkkp", "tisza", "mhm", "fidesz", "other"]
 TOTAL_SEATS = 199
 
 
@@ -37,21 +36,54 @@ TOTAL_SEATS = 199
 
 def extract_code(text: str) -> str:
     """Extract a TIPP- code from text (e.g. a chat message)."""
-    m = re.search(r"TIPP-[A-Za-z0-9+/=]+", text)
+    m = re.search(r"TIPP-[A-Za-z0-9+/=_-]+", text)
     return m.group(0) if m else text.strip()
 
 
+def _parse_seat_value(value, key: str, allow_missing: bool = False) -> int:
+    if value is None:
+        if allow_missing:
+            return 0
+        raise ValueError(f"Missing '{key}' in vote data")
+
+    try:
+        n = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid '{key}' value") from exc
+
+    if not math.isfinite(n) or n < 0:
+        raise ValueError(f"Invalid '{key}' value: {value}")
+    if not n.is_integer():
+        raise ValueError(f"Invalid '{key}' value: {value} (must be an integer seat count)")
+
+    return int(n)
+
+
 def decode_vote(code: str) -> dict:
-    b64 = code.removeprefix("TIPP-")
-    raw = base64.b64decode(b64).decode("utf-8")
+    payload = extract_code(code)
+    if not payload.startswith("TIPP-"):
+        raise ValueError("Seat evaluator only accepts TIPP- vote codes")
+    payload = payload[5:]
+
+    # Accept regular and URL-safe base64 and tolerate missing '=' padding.
+    payload = payload.replace("-", "+").replace("_", "/")
+    payload += "=" * ((-len(payload)) % 4)
+
+    raw = base64.b64decode(payload, validate=False).decode("utf-8")
     d = json.loads(raw)
+
+    name = str(d.get("n", "")).strip()
+    if not name:
+        raise ValueError("Missing or empty name ('n')")
+
     return {
-        "name": d["n"],
-        "fidesz": d["fi"],
-        "tisza": d["ti"],
-        "dk": d["dk"],
-        "mhm": d["mh"],
-        "mkkp": d["mk"],
+        "name": name,
+        "fidesz": _parse_seat_value(d.get("fi"), "fi"),
+        "tisza": _parse_seat_value(d.get("ti"), "ti"),
+        "dk": _parse_seat_value(d.get("dk"), "dk"),
+        "mhm": _parse_seat_value(d.get("mh"), "mh"),
+        "mkkp": _parse_seat_value(d.get("mk"), "mk"),
+        "other": _parse_seat_value(d.get("ot"), "ot", allow_missing=True),
         "timestamp": d.get("d", ""),
     }
 
@@ -60,12 +92,33 @@ def decode_vote(code: str) -> dict:
 
 def load_predictions() -> list:
     if PREDICTIONS_FILE.exists():
-        return json.loads(PREDICTIONS_FILE.read_text())
+        raw = json.loads(PREDICTIONS_FILE.read_text(encoding="utf-8"))
+        if not isinstance(raw, list):
+            return []
+
+        preds = []
+        for p in raw:
+            if not isinstance(p, dict):
+                continue
+
+            name = str(p.get("name", "")).strip()
+            if not name:
+                continue
+
+            pred = {"name": name, "timestamp": p.get("timestamp", "")}
+            for k in PARTY_KEYS:
+                try:
+                    pred[k] = _parse_seat_value(p.get(k), k, allow_missing=True)
+                except ValueError:
+                    pred[k] = 0
+            preds.append(pred)
+
+        return preds
     return []
 
 
 def save_predictions(preds: list):
-    PREDICTIONS_FILE.write_text(json.dumps(preds, indent=2, ensure_ascii=False))
+    PREDICTIONS_FILE.write_text(json.dumps(preds, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 # ── Commands ───────────────────────────────────────────────────
@@ -150,8 +203,29 @@ def evaluate_predictions(preds: list, actual: dict) -> list:
     return results
 
 
+def _build_actual(args) -> dict:
+    actual = {
+        "fidesz": args.fidesz,
+        "tisza": args.tisza,
+        "dk": args.dk,
+        "mhm": args.mhm,
+        "mkkp": args.mkkp,
+    }
+
+    if args.other is None:
+        inferred = TOTAL_SEATS - sum(actual.values())
+        if inferred < 0:
+            print("Warning: FI+TI+DK+MH+MK exceeds 199; using OTHER=0")
+            inferred = 0
+        actual["other"] = inferred
+    else:
+        actual["other"] = args.other
+
+    return actual
+
+
 def cmd_evaluate(args):
-    actual = dict(zip(PARTY_KEYS, [args.fidesz, args.tisza, args.dk, args.mhm, args.mkkp]))
+    actual = _build_actual(args)
     total = sum(actual.values())
     if total != TOTAL_SEATS:
         print(f"Warning: actual seats sum to {total}, expected {TOTAL_SEATS}")
@@ -228,7 +302,7 @@ def _svg_parliament(counts: dict, w: int = 500, h: int = 260) -> str:
 
 
 def cmd_report(args):
-    actual = dict(zip(PARTY_KEYS, [args.fidesz, args.tisza, args.dk, args.mhm, args.mkkp]))
+    actual = _build_actual(args)
     preds = load_predictions()
     if not preds:
         print("No predictions.")
@@ -372,6 +446,8 @@ def main():
     p_eval.add_argument("dk", type=int, help="DK seats")
     p_eval.add_argument("mhm", type=int, help="MHM seats")
     p_eval.add_argument("mkkp", type=int, help="MKKP seats")
+    p_eval.add_argument("other", nargs="?", type=int,
+                        help="OTHER seats (optional; inferred if omitted)")
 
     # report
     p_rep = sub.add_parser("report", help="Generate HTML results report")
@@ -380,6 +456,8 @@ def main():
     p_rep.add_argument("dk", type=int, help="DK seats")
     p_rep.add_argument("mhm", type=int, help="MHM seats")
     p_rep.add_argument("mkkp", type=int, help="MKKP seats")
+    p_rep.add_argument("other", nargs="?", type=int,
+                       help="OTHER seats (optional; inferred if omitted)")
     p_rep.add_argument("--output", "-o", help="Output file (default: results.html)")
 
     args = parser.parse_args()
